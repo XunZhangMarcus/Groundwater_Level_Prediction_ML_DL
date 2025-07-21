@@ -1,4 +1,4 @@
-# train_timeseries.py  ——  全量替换版
+# train_predict_3DL.py  ——  深度学习时序预测版
 import argparse, os, random, logging
 import numpy as np, pandas as pd, torch
 import torch.nn as nn
@@ -7,6 +7,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
+import json
 from model.model import GeneratorGRU, GeneratorLSTM, GeneratorTransformer
 
 # ----------------------------------------------------------------------
@@ -71,17 +72,33 @@ def main(cfg):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     log = logging.getLogger(__name__)
+    
+    # 创建输出目录
+    output_dir = f"results/single_well_{cfg.model}"
+    os.makedirs(output_dir, exist_ok=True)
 
     # -------- 数据读取 & 归一化 --------
-    df   = pd.read_excel(cfg.data_path)
-    col  = df.columns[cfg.well_col]
-    ser  = df[col].values.astype('float32').reshape(-1, 1)
+    df = pd.read_excel(cfg.data_path)
+    if "日期" in df.columns:
+        df["日期"] = pd.to_datetime(df["日期"])
+        df = df.set_index("日期")
+    
+    # 获取井位名称和数据
+    well_name = df.columns[cfg.well_col - 1]  # 修正索引
+    ser = df.iloc[:, cfg.well_col - 1].values.astype('float32').reshape(-1, 1)
+    
+    log.info(f"开始处理井位: {well_name}")
+    log.info(f"使用模型: {cfg.model.upper()}")
+    log.info(f"数据长度: {len(ser)}, 有效数据: {(~np.isnan(ser)).sum()}")
+    log.info(f"设备: {device}")
 
     scaler = MinMaxScaler()
     ser_s  = scaler.fit_transform(ser).flatten()
 
     X, y = create_sliding_window(ser_s, cfg.window_size, cfg.pred_len)
     split = int(len(X) * cfg.train_ratio)
+    
+    log.info(f"数据划分: 训练集 {len(X[:split])} 样本, 测试集 {len(X[split:])} 样本")
 
     train_loader = DataLoader(TimeSeriesDS(X[:split], y[:split]),
                               batch_size=cfg.batch_size, shuffle=False)
@@ -93,10 +110,10 @@ def main(cfg):
     crit  = nn.MSELoss()
 
     best_rmse   = float('inf')
-    save_path   = f'./results/best_{cfg.model}_{col}.pt'
+    save_path   = f'{output_dir}/best_{cfg.model}_{well_name}.pt'
 
     train_loss_hist, test_loss_hist = [], []
-    metric_file = open('results/metrics.txt', 'w', encoding='utf-8')
+    metric_file = open(f'{output_dir}/metrics_{cfg.model}_{well_name}.txt', 'w', encoding='utf-8')
     metric_file.write('#Epoch\tRMSE\tMAE\tMAPE(%)\n')
 
     # 评估与绘图时 只取每个窗口预测中的第 1 个时间步，这样时间对齐简单且不需要递归。是绝大多数论文的默认做法。
@@ -188,40 +205,166 @@ def main(cfg):
     metric_file.close()
 
     # ------------------------------------------------------------------
-    # 3. 画 LOSS 曲线
+    # 3. 最终评估和结果保存
     # ------------------------------------------------------------------
-    plt.figure()
-    plt.plot(train_loss_hist, label='Train Loss')
-    plt.plot(test_loss_hist,  label='Test  Loss')
-    plt.xlabel('Epoch'); plt.ylabel('MSE Loss')
-    plt.legend(); plt.tight_layout()
-    # 根据不同的model调整保存名称
-    plt.savefig(f'results/loss_curve_{cfg.model}_{col}.png', dpi=300)
-    plt.close()
-
-    # ------------------------------------------------------------------
-    # 4. 预测 vs. 真实（最后 epoch，Train + Test）
-    # ------------------------------------------------------------------
+    # 加载最佳模型进行最终评估
     model.load_state_dict(torch.load(save_path, map_location=device))
     model.eval()
 
+    # 计算最终的训练集和测试集指标
     pred_tr, true_tr = _predict(train_loader)
     pred_te, true_te = _predict(test_loader)
+    
+    # 计算最终指标
+    train_mse, train_mae, train_rmse, train_mape = metrics(true_tr, pred_tr)
+    test_mse, test_mae, test_rmse, test_mape = metrics(true_te, pred_te)
+    
+    log.info(f"=== 最终模型性能评估 ===")
+    log.info(f"[训练集] RMSE={train_rmse:.4f}, MAE={train_mae:.4f}, MAPE={train_mape:.2f}%")
+    log.info(f"[测试集] RMSE={test_rmse:.4f}, MAE={test_mae:.4f}, MAPE={test_mape:.2f}%")
 
-    idx_tr = np.arange(cfg.window_size, cfg.window_size + len(pred_tr))
-    idx_te = np.arange(cfg.window_size + len(pred_tr),
-                       cfg.window_size + len(pred_tr) + len(pred_te))
+    # ========= 保存详细结果到JSON ========= #
+    results = {
+        'well_name': well_name,
+        'model_type': cfg.model.upper(),
+        'data_info': {
+            'total_length': len(ser),
+            'valid_count': int((~np.isnan(ser)).sum()),
+            'train_size': len(X[:split]),
+            'test_size': len(X[split:]),
+            'window_size': cfg.window_size,
+            'pred_len': cfg.pred_len
+        },
+        'model_info': {
+            'model_type': cfg.model.upper(),
+            'epochs': cfg.epochs,
+            'batch_size': cfg.batch_size,
+            'learning_rate': cfg.lr,
+            'alpha': cfg.alpha,
+            'train_ratio': cfg.train_ratio,
+            'best_rmse': float(best_rmse),
+            'model_path': save_path
+        },
+        'train_metrics': {
+            'mse': float(train_mse),
+            'mae': float(train_mae),
+            'rmse': float(train_rmse),
+            'mape': float(train_mape)
+        },
+        'test_metrics': {
+            'mse': float(test_mse),
+            'mae': float(test_mae),
+            'rmse': float(test_rmse),
+            'mape': float(test_mape)
+        }
+    }
+    
+    with open(f"{output_dir}/{cfg.model}_results_{well_name}.json", 'w', encoding='utf-8') as f:
+        json.dump(results, f, indent=2, ensure_ascii=False, default=str)
+    log.info(f"详细结果已保存到: {output_dir}/{cfg.model}_results_{well_name}.json")
 
-    plt.figure(figsize=(10, 4))
-    plt.plot(idx_tr, true_tr, label='Train True',  lw=1)
-    plt.plot(idx_tr, pred_tr, label='Train Pred',  lw=1, ls='--')
-    plt.plot(idx_te, true_te, label='Test True',   lw=1)
-    plt.plot(idx_te, pred_te, label='Test Pred',   lw=1, ls='--')
-    plt.xlabel('Time Step'); plt.ylabel('Groundwater Level')
-    plt.legend(); plt.tight_layout()
-    # 根据不同的model调整保存名称
-    plt.savefig(f'results/pred_vs_true_{cfg.model}_{col}.png', dpi=300)
+    # ========= 生成汇总表格 ========= #
+    summary_data = {
+        '井位': well_name,
+        '模型类型': cfg.model.upper(),
+        '训练样本数': len(X[:split]),
+        '测试样本数': len(X[split:]),
+        '窗口大小': cfg.window_size,
+        '预测步长': cfg.pred_len,
+        '训练轮数': cfg.epochs,
+        '学习率': cfg.lr,
+        'Alpha': cfg.alpha,
+        '最佳RMSE': f"{best_rmse:.4f}",
+        'Train_MSE': f"{train_mse:.6f}",
+        'Train_MAE': f"{train_mae:.4f}",
+        'Train_RMSE': f"{train_rmse:.4f}",
+        'Train_MAPE(%)': f"{train_mape:.2f}",
+        'Test_MSE': f"{test_mse:.6f}",
+        'Test_MAE': f"{test_mae:.4f}",
+        'Test_RMSE': f"{test_rmse:.4f}",
+        'Test_MAPE(%)': f"{test_mape:.2f}"
+    }
+    
+    summary_df = pd.DataFrame([summary_data])
+    summary_df.to_csv(f"{output_dir}/{cfg.model}_summary_{well_name}.csv", index=False, encoding='utf-8-sig')
+    summary_df.to_excel(f"{output_dir}/{cfg.model}_summary_{well_name}.xlsx", index=False)
+    
+    log.info(f"汇总结果已保存到: {output_dir}/{cfg.model}_summary_{well_name}.xlsx")
+
+    # ------------------------------------------------------------------
+    # 4. 画 LOSS 曲线
+    # ------------------------------------------------------------------
+    plt.figure(figsize=(10, 5))
+    plt.plot(train_loss_hist, label='Train Loss', color='blue', alpha=0.7)
+    plt.plot(test_loss_hist,  label='Test Loss', color='red', alpha=0.7)
+    plt.xlabel('Epoch')
+    plt.ylabel('MSE Loss')
+    plt.title(f'{well_name} - {cfg.model.upper()} 训练损失曲线')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    loss_curve_path = f'{output_dir}/loss_curve_{cfg.model}_{well_name}.png'
+    plt.savefig(loss_curve_path, dpi=300, bbox_inches='tight')
     plt.close()
+    log.info(f"损失曲线已保存: {loss_curve_path}")
+
+    # ------------------------------------------------------------------
+    # 5. 预测 vs. 真实（使用与其他脚本一致的格式）
+    # ------------------------------------------------------------------
+    # 生成时间索引
+    if hasattr(df.index, 'dtype') and 'datetime' in str(df.index.dtype):
+        # 使用原始时间索引
+        train_start_idx = cfg.window_size
+        train_end_idx = cfg.window_size + len(pred_tr)
+        test_start_idx = train_end_idx
+        test_end_idx = test_start_idx + len(pred_te)
+        
+        if len(df.index) > test_end_idx:
+            idx_tr = df.index[train_start_idx:train_end_idx]
+            idx_te = df.index[test_start_idx:test_end_idx]
+        else:
+            # 如果索引长度不够，使用数值索引
+            idx_tr = np.arange(cfg.window_size, cfg.window_size + len(pred_tr))
+            idx_te = np.arange(cfg.window_size + len(pred_tr), 
+                             cfg.window_size + len(pred_tr) + len(pred_te))
+    else:
+        # 使用数值索引
+        idx_tr = np.arange(cfg.window_size, cfg.window_size + len(pred_tr))
+        idx_te = np.arange(cfg.window_size + len(pred_tr), 
+                         cfg.window_size + len(pred_tr) + len(pred_te))
+
+    # 原始序列预测图
+    fig, ax = plt.subplots(figsize=(12, 5))
+    ax.plot(idx_tr, true_tr, label="Train True", color='blue', alpha=0.7, lw=1)
+    ax.plot(idx_tr, pred_tr, label="Train Pred", color='blue', alpha=0.7, lw=1, ls='--')
+    ax.plot(idx_te, true_te, label="Test True", color='red', alpha=0.7, lw=1)
+    ax.plot(idx_te, pred_te, label="Test Pred", color='red', alpha=0.7, lw=1, ls='--')
+    
+    ax.set_title(f"{well_name} - {cfg.model.upper()} 时序预测\nTest RMSE={test_rmse:.4f}, MAE={test_mae:.4f}, MAPE={test_mape:.2f}%")
+    ax.set_ylabel("地下水位 (GWL)")
+    ax.set_xlabel("日期" if hasattr(idx_tr, 'dtype') and 'datetime' in str(idx_tr.dtype) else "时间步")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    
+    # 如果是时间索引，旋转x轴标签
+    if hasattr(idx_tr, 'dtype') and 'datetime' in str(idx_tr.dtype):
+        ax.tick_params(axis='x', rotation=45)
+    
+    pred_path = f"{output_dir}/pred_vs_true_{cfg.model}_{well_name}.png"
+    fig.tight_layout()
+    fig.savefig(pred_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    log.info(f"预测结果图已保存: {pred_path}")
+    
+    # —— 最终总结 —— #
+    log.info(f"\n=== 单井位{cfg.model.upper()}建模完成 ===")
+    log.info(f"井位名称: {well_name}")
+    log.info(f"模型类型: {cfg.model.upper()}")
+    log.info(f"最佳RMSE: {best_rmse:.4f}")
+    log.info(f"最终测试集性能: RMSE={test_rmse:.4f}, MAE={test_mae:.4f}, MAPE={test_mape:.2f}%")
+    log.info(f"结果保存目录: {output_dir}/")
+    
+    return results
 
 # ----------------------------------------------------------------------
 if __name__ == '__main__':

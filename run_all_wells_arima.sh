@@ -8,7 +8,7 @@ MAX_P=4
 MAX_Q=4
 MAX_D=2
 
-# 获取井名列表（假设用python读取列名）
+# 获取井名列表
 well_names=( $(python -c "import pandas as pd; df = pd.read_excel('$DATA_PATH'); print(' '.join([str(c) for c in df.columns[1:24]]))") )
 
 for ((i=1; i<=23; i++)); do
