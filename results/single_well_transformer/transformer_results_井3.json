@@ -1,0 +1,34 @@
+{
+  "well_name": "井3",
+  "model_type": "TRANSFORMER",
+  "data_info": {
+    "total_length": 631,
+    "valid_count": 631,
+    "train_size": 422,
+    "test_size": 182,
+    "window_size": 24,
+    "pred_len": 4
+  },
+  "model_info": {
+    "model_type": "TRANSFORMER",
+    "epochs": 100,
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "alpha": 0.5,
+    "train_ratio": 0.7,
+    "best_rmse": 0.2208683779338543,
+    "model_path": "results/single_well_transformer/best_transformer_井3.pt"
+  },
+  "train_metrics": {
+    "mse": 0.02266317792236805,
+    "mae": 0.1238434761762619,
+    "rmse": 0.15054294378139432,
+    "mape": 1.270520780235529
+  },
+  "test_metrics": {
+    "mse": 0.04075072705745697,
+    "mae": 0.16352754831314087,
+    "rmse": 0.2018680932130112,
+    "mape": 1.8384655937552452
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "井1": {
+    "xgb": {
+      "success": true,
+      "error_msg": null,
+      "model_type": "XGB",
+      "well_index": 2,
+      "train_metrics": {
+        "mse": 1.422432887920877e-05,
+        "mae": 0.0024710362777113914,
+        "rmse": 0.0037715154618811744,
+        "mape": 0.01728022616589442
+      },
+      "test_metrics": {
+        "mse": 0.11759188771247864,
+        "mae": 0.2273375391960144,
+        "rmse": 0.34291673583025756,
+        "mape": 1.5063617378473282
+      },
+      "data_info": {
+        "total_length": 631,
+        "valid_count": 631,
+        "train_size": 483,
+        "test_size": 121,
+        "window_size": 24,
+        "pred_len": 4
+      },
+      "model_path": "results/multi_wells_ml/xgb_井1.joblib"
+    },
+    "lgbm": {
+      "success": true,
+      "error_msg": null,
+      "model_type": "LGBM",
+      "well_index": 2,
+      "train_metrics": {
+        "mse": 0.0001729765569365634,
+        "mae": 0.006763841559262009,
+        "rmse": 0.013152055236219295,
+        "mape": 0.04756186886308613
+      },
+      "test_metrics": {
+        "mse": 0.13837847703905748,
+        "mae": 0.26609211854434395,
+        "rmse": 0.3719925765913313,
+        "mape": 1.7681740649157514
+      },
+      "data_info": {
+        "total_length": 631,
+        "valid_count": 631,
+        "train_size": 483,
+        "test_size": 121,
+        "window_size": 24,
+        "pred_len": 4
+      },
+      "model_path": "results/multi_wells_ml/lgbm_井1.joblib"
+    }
+  },
+  "井2": {
+    "xgb": {
+      "success": true,
+      "error_msg": null,
+      "model_type": "XGB",
+      "well_index": 3,
+      "train_metrics": {
+        "mse": 1.381274159939494e-05,
+        "mae": 0.002372126094996929,
+        "rmse": 0.0037165496901554996,
+        "mape": 0.03143191279377788
+      },
+      "test_metrics": {
+        "mse": 0.03152770176529884,
+        "mae": 0.10989098995923996,
+        "rmse": 0.17756041722551466,
+        "mape": 1.4368562027812004
+      },
+      "data_info": {
+        "total_length": 631,
+        "valid_count": 631,
+        "train_size": 483,
+        "test_size": 121,
+        "window_size": 24,
+        "pred_len": 4
+      },
+      "model_path": "results/multi_wells_ml/xgb_井2.joblib"
+    },
+    "lgbm": {
+      "success": true,
+      "error_msg": null,
+      "model_type": "LGBM",
+      "well_index": 3,
+      "train_metrics": {
+        "mse": 0.00010171727124424235,
+        "mae": 0.005284829061309359,
+        "rmse": 0.010085498066245532,
+        "mape": 0.06914940676228934
+      },
+      "test_metrics": {
+        "mse": 0.026752924693487053,
+        "mae": 0.09694274819311688,
+        "rmse": 0.16356321314246383,
+        "mape": 1.2597091007492711
+      },
+      "data_info": {
+        "total_length": 631,
+        "valid_count": 631,
+        "train_size": 483,
+        "test_size": 121,
+        "window_size": 24,
+        "pred_len": 4
+      },
+      "model_path": "results/multi_wells_ml/lgbm_井2.joblib"
+    }
+  },
+  "井3": {
+    "xgb": {
+      "success": true,
+      "error_msg": null,
+      "model_type": "XGB",
+      "well_index": 4,
+      "train_metrics": {
+        "mse": 1.2012493243673816e-05,
+        "mae": 0.0022829610388725996,
+        "rmse": 0.0034659043904403677,
+        "mape": 0.023874331964179873
+      },
+      "test_metrics": {
+        "mse": 0.020916860550642014,
+        "mae": 0.1204327642917633,
+        "rmse": 0.14462662462576528,
+        "mape": 1.3447304256260395
+      },
+      "data_info": {
+        "total_length": 631,
+        "valid_count": 631,
+        "train_size": 483,
+        "test_size": 121,
+        "window_size": 24,
+        "pred_len": 4
+      },
+      "model_path": "results/multi_wells_ml/xgb_井3.joblib"
+    },
+    "lgbm": {
+      "success": true,
+      "error_msg": null,
+      "model_type": "LGBM",
+      "well_index": 4,
+      "train_metrics": {
+        "mse": 0.0001110304084430855,
+        "mae": 0.0059537866250054345,
+        "rmse": 0.010537096774875208,
+        "mape": 0.06215714682672324
+      },
+      "test_metrics": {
+        "mse": 0.02816256396969845,
+        "mae": 0.1325521539893686,
+        "rmse": 0.167817055062048,
+        "mape": 1.4792310434189837
+      },
+      "data_info": {
+        "total_length": 631,
+        "valid_count": 631,
+        "train_size": 483,
+        "test_size": 121,
+        "window_size": 24,
+        "pred_len": 4
+      },
+      "model_path": "results/multi_wells_ml/lgbm_井3.joblib"
+    }
+  }
+}

@@ -108,7 +108,10 @@ def fit_single_well_ml(well_data, well_name, cfg, well_index, model_type):
         )
         
         # 保存模型
-        model_path = f"results/{model_type}_{well_name}.joblib"
+        # 创建模型保存目录
+        model_save_dir = f'results/multi_wells_ml'
+        os.makedirs(model_save_dir, exist_ok=True)
+        model_path = f"{model_save_dir}/{model_type}_{well_name}.joblib"
         joblib.dump(model, model_path)
         result['model_path'] = model_path
         
@@ -556,9 +559,9 @@ if __name__ == "__main__":
     parser.add_argument("--data_path", type=str,
                         default="database/ZoupingCounty_gwl_filled.xlsx",
                         help="数据文件路径（Excel/CSV 都可）")
-    parser.add_argument("--start_col", type=int, default=1,
-                        help="起始井位列序号（从 1 开始，跳过日期列）")
-    parser.add_argument("--end_col", type=int, default=3,
+    parser.add_argument("--start_col", type=int, default=2,
+                        help="起始井位列序号（从 2 开始，跳过日期列）")
+    parser.add_argument("--end_col", type=int, default=4,
                         help="结束井位列序号（-1表示到最后一列）")
     parser.add_argument("--window_size", type=int, default=24,
                         help="滑动窗口大小")

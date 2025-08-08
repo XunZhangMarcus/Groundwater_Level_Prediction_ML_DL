@@ -1,0 +1,2 @@
+﻿井位,模型类型,训练样本数,测试样本数,窗口大小,预测步长,Train_MSE,Train_MAE,Train_RMSE,Train_MAPE(%),Test_MSE,Test_MAE,Test_RMSE,Test_MAPE(%)
+井3,LGBM,483,121,24,4,0.000111,0.0060,0.0105,0.06,0.028163,0.1326,0.1678,1.48

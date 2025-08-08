@@ -10,6 +10,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing as mp
 from functools import partial
 import json
+import pickle
 
 warnings.filterwarnings("ignore", category=UserWarning)
 plt.rcParams["font.family"] = "Arial"
@@ -138,6 +139,14 @@ def fit_single_well_arima(well_data, well_name, cfg, well_index):
         
         # —— 最终拟合 & 预测（原始尺度） —— #
         best_model = sm.tsa.ARIMA(train_raw, order=best_order).fit()
+        
+        # 保存模型
+        output_dir = f"results/multi_wells_arima"
+        os.makedirs(output_dir, exist_ok=True)
+        model_path = f"{output_dir}/arima_model_{well_name}.pkl"
+        with open(model_path, 'wb') as f:
+            pickle.dump(best_model, f)
+        result['model_path'] = model_path
         
         # 训练集预测（用于评估拟合效果）
         train_pred = best_model.fittedvalues
@@ -450,6 +459,7 @@ def main(cfg):
             'best_order': result['best_order'],
             'best_aic': result['best_aic'],
             'diff_order': result['diff_order'],
+            'model_path': result.get('model_path', None),
             'train_metrics': result['train_metrics'],
             'test_metrics': result['test_metrics']
         }
@@ -524,8 +534,8 @@ if __name__ == "__main__":
     parser.add_argument("--data_path", type=str,
                         default="database/ZoupingCounty_gwl_filled.xlsx",
                         help="数据文件路径（Excel/CSV 都可）")
-    parser.add_argument("--start_col", type=int, default=1,
-                        help="起始井位列序号（从 1 开始，跳过日期列）")
+    parser.add_argument("--start_col", type=int, default=2,
+                        help="起始井位列序号（从 2 开始，跳过日期列）")
     parser.add_argument("--end_col", type=int, default=3,
                         help="结束井位列序号（-1表示到最后一列）")
     parser.add_argument("--train_ratio", type=float, default=0.8,

@@ -1,0 +1,29 @@
+{
+  "well_name": "井3",
+  "model_type": "LGBM",
+  "data_info": {
+    "total_length": 631,
+    "valid_count": 631,
+    "train_size": 483,
+    "test_size": 121,
+    "window_size": 24,
+    "pred_len": 4
+  },
+  "model_info": {
+    "model_type": "LGBM",
+    "train_ratio": 0.8,
+    "model_path": "results/single_well_lgbm/lgbm_井3.joblib"
+  },
+  "train_metrics": {
+    "mse": 0.00011103040844308548,
+    "mae": 0.0059537866250054345,
+    "rmse": 0.010537096774875207,
+    "mape": 0.06215714682672324
+  },
+  "test_metrics": {
+    "mse": 0.028162563969698455,
+    "mae": 0.1325521539893686,
+    "rmse": 0.16781705506204803,
+    "mape": 1.4792310434189837
+  }
+}

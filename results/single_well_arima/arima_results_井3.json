@@ -1,0 +1,29 @@
+{
+  "well_name": "井3",
+  "data_info": {
+    "total_length": 631,
+    "valid_count": 631,
+    "train_size": 504,
+    "test_size": 127
+  },
+  "model_info": {
+    "best_order": [
+      1,
+      1,
+      1
+    ],
+    "best_aic": -2073.17387740867,
+    "diff_order": 1,
+    "model_path": "results/single_well_arima/arima_model_井3.pkl"
+  },
+  "train_metrics": {
+    "rmse": 0.4664846374890667,
+    "mae": 0.034383031622763835,
+    "mape": 0.33980169687673395
+  },
+  "test_metrics": {
+    "rmse": 0.46788507623788295,
+    "mae": 0.35380758558889047,
+    "mape": 3.847507151569924
+  }
+}

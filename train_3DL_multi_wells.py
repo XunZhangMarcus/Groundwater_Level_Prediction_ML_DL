@@ -131,7 +131,10 @@ def fit_single_well_dl(well_data, well_name, cfg, well_index, model_type, device
         crit = nn.MSELoss()
         
         best_rmse = float('inf')
-        save_path = f'results/{model_type}_{well_name}.pt'
+        # 创建模型保存目录
+        model_save_dir = f'results/multi_wells_{model_type}'
+        os.makedirs(model_save_dir, exist_ok=True)
+        save_path = f'{model_save_dir}/{model_type}_{well_name}.pt'
         
         train_loss_hist, test_loss_hist = [], []        
 
@@ -442,9 +445,24 @@ def main(cfg):
     os.makedirs("results", exist_ok=True)
     log = logging.getLogger(__name__)
     
-    # 创建输出目录
-    output_dir = f"results/multi_wells_3dl"
-    os.makedirs(output_dir, exist_ok=True)
+    # 确定要使用的模型
+    if cfg.models == 'all':
+        selected_models = ['gru', 'lstm', 'transformer']
+    else:
+        selected_models = [model.strip().lower() for model in cfg.models.split(',')]
+        # 验证模型名称
+        valid_models = ['gru', 'lstm', 'transformer']
+        invalid_models = [m for m in selected_models if m not in valid_models]
+        if invalid_models:
+            log.error(f"无效的模型名称: {invalid_models}. 有效选项: {valid_models}")
+            sys.exit(1)
+    
+    # 为每个模型类型创建输出目录
+    output_dirs = {}
+    for model_type in selected_models:
+        output_dir = f"results/multi_wells_{model_type}"
+        os.makedirs(output_dir, exist_ok=True)
+        output_dirs[model_type] = output_dir
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     log.info(f"使用设备: {device}")
@@ -459,24 +477,10 @@ def main(cfg):
     well_columns = df.columns[cfg.start_col-1:cfg.end_col] if cfg.end_col > 0 else df.columns[cfg.start_col-1:]
     
     log.info(f"开始处理 {len(well_columns)} 个井位: {list(well_columns)}")
-    log.info(f"使用模型: GRU, LSTM, Transformer")
+    log.info(f"选择的模型: {[m.upper() for m in selected_models]}")
     
     # —— 并行处理多个井位和模型 —— #
     results = {}
-    
-    # 确定要使用的模型
-    if cfg.models == 'all':
-        selected_models = ['gru', 'lstm', 'transformer']
-    else:
-        selected_models = [model.strip().lower() for model in cfg.models.split(',')]
-        # 验证模型名称
-        valid_models = ['gru', 'lstm', 'transformer']
-        invalid_models = [m for m in selected_models if m not in valid_models]
-        if invalid_models:
-            log.error(f"无效的模型名称: {invalid_models}. 有效选项: {valid_models}")
-            sys.exit(1)
-    
-    log.info(f"选择的模型: {[m.upper() for m in selected_models]}")
     
     # 准备任务列表：每个井位 × 每个选择的模型
     tasks = []
@@ -526,82 +530,95 @@ def main(cfg):
                 log.warning(f"❌ {well_name} - {model_type.upper()}: {result['error_msg']}")
     
     # —— 结果汇总 —— #
-    total_tasks = len(well_columns) * 3  # 每个井位 × 3个模型
+    total_tasks = len(well_columns) * len(selected_models)
     successful_count = sum(1 for models in results.values() 
                           for res in models.values() if res['success'])
     log.info(f"\n建模完成: {successful_count}/{total_tasks} 个任务成功")    
  
-   # 保存详细结果到JSON
-    summary_results = {}
-    for well_name, models in results.items():
-        summary_results[well_name] = {}
-        for model_type, result in models.items():
-            summary_results[well_name][model_type] = {
-                'success': result['success'],
-                'error_msg': result['error_msg'],
-                'model_type': result['model_type'],
-                'well_index': result['well_index'],
-                'train_metrics': result['train_metrics'],
-                'test_metrics': result['test_metrics'],
-                'data_info': result['data_info'],
-                'training_info': result['training_info'],
-                'model_path': result['model_path']
-            }
-    
-    with open(f"{output_dir}/multi_wells_3dl_results.json", 'w', encoding='utf-8') as f:
-        json.dump(summary_results, f, indent=2, ensure_ascii=False, default=str)
-    
-    # —— 生成汇总表格 —— #
-    summary_df = []
-    for well_name, models in results.items():
-        for model_type, result in models.items():
-            if result['success']:
-                summary_df.append({
-                    '井位': well_name,
-                    '井位序号': result['well_index'],
-                    '模型类型': result['model_type'],
-                    '训练样本数': result['data_info']['train_size'],
-                    '测试样本数': result['data_info']['test_size'],
-                    '训练轮数': result['training_info']['epochs'],
-                    '学习率': result['training_info']['learning_rate'],
-                    'Alpha': result['training_info']['alpha'],
-                    '最佳RMSE': f"{result['training_info']['best_rmse']:.4f}",
-                    'Train_RMSE': f"{result['train_metrics']['rmse']:.4f}",
-                    'Train_MAE': f"{result['train_metrics']['mae']:.4f}",
-                    'Train_MAPE(%)': f"{result['train_metrics']['mape']:.2f}",
-                    'Test_RMSE': f"{result['test_metrics']['rmse']:.4f}",
-                    'Test_MAE': f"{result['test_metrics']['mae']:.4f}",
-                    'Test_MAPE(%)': f"{result['test_metrics']['mape']:.2f}"
-                })
-            else:
-                summary_df.append({
-                    '井位': well_name,
-                    '井位序号': result['well_index'],
-                    '模型类型': result['model_type'],
-                    '训练样本数': 'FAILED',
-                    '测试样本数': 'FAILED',
-                    '训练轮数': '-',
-                    '学习率': '-',
-                    'Alpha': '-',
-                    '最佳RMSE': '-',
-                    'Train_RMSE': '-',
-                    'Train_MAE': '-',
-                    'Train_MAPE(%)': '-',
-                    'Test_RMSE': '-',
-                    'Test_MAE': '-',
-                    'Test_MAPE(%)': '-'
-                })
-    
-    summary_df = pd.DataFrame(summary_df)
-    summary_df.to_csv(f"{output_dir}/multi_wells_3dl_summary.csv", index=False, encoding='utf-8-sig')
-    summary_df.to_excel(f"{output_dir}/multi_wells_3dl_summary.xlsx", index=False)
-    
-    log.info(f"汇总结果已保存到: {output_dir}/multi_wells_3dl_summary.xlsx")
+    # 为每个模型类型保存详细结果到JSON和生成汇总表格
+    for model_type in selected_models:
+        output_dir = output_dirs[model_type]
+        
+        # 保存详细结果到JSON
+        summary_results = {}
+        for well_name, models in results.items():
+            if model_type in models:
+                result = models[model_type]
+                summary_results[well_name] = {
+                    'success': result['success'],
+                    'error_msg': result['error_msg'],
+                    'model_type': result['model_type'],
+                    'well_index': result['well_index'],
+                    'train_metrics': result['train_metrics'],
+                    'test_metrics': result['test_metrics'],
+                    'data_info': result['data_info'],
+                    'training_info': result['training_info'],
+                    'model_path': result['model_path']
+                }
+        
+        with open(f"{output_dir}/multi_wells_{model_type}_results.json", 'w', encoding='utf-8') as f:
+            json.dump(summary_results, f, indent=2, ensure_ascii=False, default=str)
+        
+        # 生成汇总表格
+        summary_df = []
+        for well_name, models in results.items():
+            if model_type in models:
+                result = models[model_type]
+                if result['success']:
+                    summary_df.append({
+                        '井位': well_name,
+                        '井位序号': result['well_index'],
+                        '模型类型': result['model_type'],
+                        '训练样本数': result['data_info']['train_size'],
+                        '测试样本数': result['data_info']['test_size'],
+                        '训练轮数': result['training_info']['epochs'],
+                        '学习率': result['training_info']['learning_rate'],
+                        'Alpha': result['training_info']['alpha'],
+                        '最佳RMSE': f"{result['training_info']['best_rmse']:.4f}",
+                        'Train_RMSE': f"{result['train_metrics']['rmse']:.4f}",
+                        'Train_MAE': f"{result['train_metrics']['mae']:.4f}",
+                        'Train_MAPE(%)': f"{result['train_metrics']['mape']:.2f}",
+                        'Test_RMSE': f"{result['test_metrics']['rmse']:.4f}",
+                        'Test_MAE': f"{result['test_metrics']['mae']:.4f}",
+                        'Test_MAPE(%)': f"{result['test_metrics']['mape']:.2f}"
+                    })
+                else:
+                    summary_df.append({
+                        '井位': well_name,
+                        '井位序号': result['well_index'],
+                        '模型类型': result['model_type'],
+                        '训练样本数': 'FAILED',
+                        '测试样本数': 'FAILED',
+                        '训练轮数': '-',
+                        '学习率': '-',
+                        'Alpha': '-',
+                        '最佳RMSE': '-',
+                        'Train_RMSE': '-',
+                        'Train_MAE': '-',
+                        'Train_MAPE(%)': '-',
+                        'Test_RMSE': '-',
+                        'Test_MAE': '-',
+                        'Test_MAPE(%)': '-'
+                    })
+        
+        summary_df = pd.DataFrame(summary_df)
+        summary_df.to_csv(f"{output_dir}/multi_wells_{model_type}_summary.csv", index=False, encoding='utf-8-sig')
+        summary_df.to_excel(f"{output_dir}/multi_wells_{model_type}_summary.xlsx", index=False)
+        
+        log.info(f"{model_type.upper()} 汇总结果已保存到: {output_dir}/multi_wells_{model_type}_summary.xlsx")
     
     # —— 可视化 —— #
     log.info("生成可视化图表...")
-    plot_multi_wells_results(results, cfg, output_dir, log)
-    log.info(f"可视化图表已保存到: {output_dir}/")
+    for model_type in selected_models:
+        output_dir = output_dirs[model_type]
+        # 创建只包含当前模型类型的结果字典
+        model_results = {}
+        for well_name, models in results.items():
+            if model_type in models:
+                model_results[well_name] = {model_type: models[model_type]}
+        
+        plot_multi_wells_results(model_results, cfg, output_dir, log)
+        log.info(f"{model_type.upper()} 可视化图表已保存到: {output_dir}/")
     
     # 打印最终统计
     if successful_count > 0:
@@ -633,9 +650,9 @@ if __name__ == "__main__":
     parser.add_argument("--data_path", type=str,
                         default="database/ZoupingCounty_gwl_filled.xlsx",
                         help="数据文件路径（Excel/CSV 都可）")
-    parser.add_argument("--start_col", type=int, default=1,
-                        help="起始井位列序号（从 1 开始，跳过日期列）")
-    parser.add_argument("--end_col", type=int, default=3,
+    parser.add_argument("--start_col", type=int, default=2,
+                        help="起始井位列序号（从 2 开始，跳过日期列）")
+    parser.add_argument("--end_col", type=int, default=4,
                         help="结束井位列序号（-1表示到最后一列）")
     parser.add_argument("--window_size", type=int, default=24,
                         help="滑动窗口大小")

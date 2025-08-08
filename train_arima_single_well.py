@@ -7,6 +7,7 @@ from statsmodels.stats.diagnostic import acorr_ljungbox
 import statsmodels.api as sm
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import json
+import pickle
 
 warnings.filterwarnings("ignore", category=UserWarning)
 plt.rcParams["font.family"] = "Arial"
@@ -158,6 +159,12 @@ def main(cfg):
     log.info(f"[训练集] RMSE={train_rmse:.4f}, MAE={train_mae:.4f}, MAPE={train_mape:.2f}%")
     log.info(f"[测试集] RMSE={test_rmse:.4f}, MAE={test_mae:.4f}, MAPE={test_mape:.2f}%")
 
+    # —— 保存模型 —— #
+    model_path = f"{output_dir}/arima_model_{well_name}.pkl"
+    with open(model_path, 'wb') as f:
+        pickle.dump(best_model, f)
+    log.info(f"模型已保存到: {model_path}")
+
     # —— 保存结果到JSON —— #
     results = {
         'well_name': well_name,
@@ -170,7 +177,8 @@ def main(cfg):
         'model_info': {
             'best_order': best_order,
             'best_aic': float(best_aic),
-            'diff_order': d
+            'diff_order': d,
+            'model_path': model_path
         },
         'train_metrics': {
             'rmse': float(train_rmse),

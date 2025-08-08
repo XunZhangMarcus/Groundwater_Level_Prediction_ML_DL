@@ -1,18 +1,24 @@
 # Groundwater_Level_Prediction_ML_DL
 
-*A Comparative Repository of Statistical, Machine‑Learning and Deep‑Learning Forecasters*
+*A Comprehensive Repository of Statistical, Machine‑Learning and Deep‑Learning Forecasters with Complete Training‑to‑Inference Pipeline*
 
 ---
 
 ## 1 · Scope & Motivation
 
-Reliable groundwater‑level (GWL) prediction underpins sustainable aquifer management and hydro‑decision support.  Despite the proliferation of specialised models, reproducible **cross‑paradigm benchmarks** remain scarce.  This repository therefore consolidates three canonical forecasting families—
+Reliable groundwater‑level (GWL) prediction underpins sustainable aquifer management and hydro‑decision support.  Despite the proliferation of specialised models, reproducible **cross‑paradigm benchmarks** with complete training‑to‑inference workflows remain scarce.  This repository therefore consolidates three canonical forecasting families—
 
 * **Statistical Auto‑Regressive models** (ARIMA),
 * **Tree‑based Gradient‑Boosting regressors** (XGBoost & LightGBM), and
 * **Sequence‑to‑Sequence Neural Networks** (GRU, LSTM, Transformer),
 
 into a single, data‑agnostic pipeline tailored to hydro‑temporal series.  All scripts ingest the same *sliding‑window* features and emit harmonised evaluation metrics (RMSE, MAE, MAPE), facilitating apples‑to‑apples comparison and ablation analysis.
+
+**Key Features:**
+- **Complete Model Lifecycle**: Training scripts with model persistence + dedicated inference scripts
+- **Parallel Processing**: Multi‑well concurrent training with comprehensive error handling
+- **Standardized Output**: Unified directory structure and file naming conventions
+- **Production Ready**: Saved models can be loaded for real‑time prediction workflows
 
 ---
 
@@ -22,12 +28,21 @@ into a single, data‑agnostic pipeline tailored to hydro‑temporal series.  Al
 
 | Script                              | Paradigm             | Scope        | Highlights                                                                                                         |
 | ----------------------------------- | -------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------ |
-| **`train_arima_single_well.py`**   | Classical statistics | Single well  | *Automatic differencing* via ADF & Ljung‑Box; grid search over <i>p, q</i>; detailed logging                     |
+| **`train_arima_single_well.py`**   | Classical statistics | Single well  | *Automatic differencing* via ADF & Ljung‑Box; grid search over <i>p, q</i>; pickle model persistence             |
 | **`train_arima_multi_wells.py`**   | Classical statistics | Multi wells  | *Parallel processing*; batch ARIMA modeling; comprehensive visualization                                           |
 | **`train_ml_single_well.py`**      | GBDT (XGB / LGBM)    | Single well  | Multi‑step forecasting through `MultiOutputRegressor`; joblib model persistence                                   |
 | **`train_ml_multi_wells.py`**      | GBDT (XGB / LGBM)    | Multi wells  | *Parallel XGB/LGBM training*; automated result aggregation                                                        |
 | **`train_3DL_single_well.py`**     | Deep learning        | Single well  | GRU / LSTM / Transformer; derivative‑aware loss *(MSE + α·MSE<sub>Δ</sub>)*; gradient‑clipping                   |
-| **`train_3DL_multi_wells.py`**     | Deep learning        | Multi wells  | *Parallel neural training*; selective model training; advanced visualization control                              |
+| **`train_3DL_multi_wells.py`**     | Deep learning        | Multi wells  | *Parallel neural training*; selective model training; per‑model directory organization                           |
+
+### 2.2 Inference Scripts
+
+| Script                                   | Paradigm             | Scope        | Highlights                                                                                                         |
+| ---------------------------------------- | -------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------ |
+| **`predict_arima_single_well.py`**      | Classical statistics | Single well  | Load saved ARIMA models; generate predictions with visualization; Excel export                                    |
+| **`predict_arima_multi_wells.py`**      | Classical statistics | Multi wells  | Batch inference across multiple saved models; unified result aggregation                                          |
+| **`predict_ml_multi_wells.py`**         | GBDT (XGB / LGBM)    | Multi wells  | Auto‑discover saved ML models; parallel prediction; comprehensive performance reporting                           |
+| **`predict_3DL_single_well_inference.py`** | Deep learning     | Single well  | PyTorch model loading; standardized output naming; multi‑sheet Excel results                                      |
 
 ### 2.2 Supporting Infrastructure
 
@@ -134,6 +149,23 @@ python train_3DL_multi_wells.py \
   --epochs 100 --alpha 0.5
 ```
 
+### 5.4 Model Inference
+```bash
+# ❶ Single‑well ARIMA prediction
+python predict_arima_single_well.py \
+  --data_path database/ZoupingCounty_gwl_filled.xlsx \
+  --well_col 2 --model_dir results/single_well_arima
+
+# ❷ Multi‑well ARIMA batch inference
+python predict_arima_multi_wells.py
+
+# ❸ Multi‑well ML prediction (auto‑discover saved models)
+python predict_ml_multi_wells.py
+
+# ❹ Single‑well deep learning inference
+python predict_3DL_single_well_inference.py
+```
+
 All scripts log to stdout and persist comprehensive results in structured `results/` directories.
 
 ---
@@ -157,21 +189,58 @@ pip install torch pandas openpyxl numpy scikit-learn matplotlib joblib xgboost l
 
 ## 7 · Output Structure
 
-Each training run generates comprehensive results:
+The framework generates a comprehensive, organized output structure:
 
+### 7.1 Training Results
 ```
 results/
-├── multi_wells_[method]/              # Multi-well results
-│   ├── multi_wells_[method]_results.json     # Detailed JSON results
-│   ├── multi_wells_[method]_summary.xlsx     # Excel summary table
-│   ├── pred_vs_true_[model]_[well].png       # Individual prediction plots
-│   ├── loss_curve_[model]_[well].png         # Training curves (deep learning)
-│   └── multi_wells_[method]_overview.png     # Multi-well overview
+├── multi_wells_transformer/           # Transformer multi-well results
+│   ├── multi_wells_transformer_results.json
+│   ├── multi_wells_transformer_summary.xlsx
+│   ├── pred_vs_true_transformer_[well].png
+│   ├── loss_curve_transformer_[well].png
+│   ├── multi_wells_transformer_overview.png
+│   └── transformer_[well].pt          # Saved model weights
+├── multi_wells_gru/                   # GRU multi-well results
+├── multi_wells_lstm/                  # LSTM multi-well results
+├── multi_wells_ml/                    # ML multi-well results
+│   ├── multi_wells_ml_results.json
+│   ├── multi_wells_ml_summary.xlsx
+│   ├── xgb_[well].joblib              # XGBoost models
+│   └── lgbm_[well].joblib             # LightGBM models
+├── multi_wells_arima/                 # ARIMA multi-well results
+│   ├── multi_wells_arima_results.json
+│   ├── multi_wells_arima_summary.xlsx
+│   └── arima_model_[well].pkl         # ARIMA models
 └── single_well_[method]/              # Single-well results
-    ├── [method]_results_[well].json           # Detailed results
-    ├── [method]_summary_[well].xlsx           # Summary table
-    └── pred_vs_true_[method]_[well].png       # Prediction plot
+    ├── [method]_results_[well].json
+    ├── [method]_summary_[well].xlsx
+    ├── pred_vs_true_[method]_[well].png
+    └── [saved_model_files]
 ```
+
+### 7.2 Inference Results
+```
+results/
+├── single_well_inference_transformer/ # Single-well DL inference
+│   ├── prediction_transformer_[well].png
+│   └── single_well_inference_transformer_[well].xlsx
+├── single_well_arima_inference/       # Single-well ARIMA inference
+│   ├── prediction_[well].png
+│   └── prediction_results_[well].xlsx
+├── arima_inference/                   # Multi-well ARIMA inference
+│   ├── prediction_ARIMA_[well].png
+│   └── arima_prediction_results.xlsx
+└── ml_inference/                      # Multi-well ML inference
+    ├── prediction_[model]_[well].png
+    └── prediction_results.xlsx
+```
+
+**Key Features:**
+- **Model Persistence**: All trained models are saved for future inference
+- **Standardized Naming**: Consistent file naming across all methods
+- **Comprehensive Metadata**: JSON files contain detailed training information
+- **Publication-Ready Plots**: High-resolution visualizations with performance metrics
 
 ---
 
