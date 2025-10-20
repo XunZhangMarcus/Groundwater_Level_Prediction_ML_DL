@@ -1,2 +1,0 @@
-﻿井位,模型类型,训练样本数,测试样本数,窗口大小,预测步长,训练轮数,学习率,Alpha,最佳RMSE,Train_MSE,Train_MAE,Train_RMSE,Train_MAPE(%),Test_MSE,Test_MAE,Test_RMSE,Test_MAPE(%)
-井3,TRANSFORMER,422,182,24,4,100,0.001,0.5,0.2209,0.022663,0.1238,0.1505,1.27,0.040751,0.1635,0.2019,1.84
